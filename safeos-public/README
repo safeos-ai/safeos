@@ -1,0 +1,80 @@
+1）Resource Quota
+This is a preliminary demonstration how Safe OS allocates resources. HelloWorld is always the first program, 
+any programmer will learn in various languages. The source code is as below:
+
+#include "stdio.h"
+int main(void) {
+  fprintf(stdout, "hello\n");
+  fprintf(stdout, "world\n");
+  exit();
+}
+
+This demo will show Safe OS contains the running of hello. Since Safe OS only allocate stdout, which is a Kernel resource, to executable program hello 3 times. 
+So, naturally, in the first run of this program, you will see hello world. 
+In the second run of this program, you will see hello, and an Exception, and the program stops right away. 
+In the third run of this program, you will only see the Exception, and the program stops right away.
+
+cpu0: starting 0
+sb: size 1000 nblocks 941 ninodes 200 nlog 30 logstart 2 inodestart 32 bmap start 58
+init: starting sh
+Safe OS$ hello
+hello
+world
+Safe OS$ hello
+hello
+Exception: Run out of Resources
+Safe OS$ hello
+Exception: Run out of Resources
+Safe OS$ 
+
+2）Time Limit
+The second demo will show how SafeOS schedules time-sharing. The following is source code for a dead loop:
+
+#include "stdio.h"
+Int main(void) {
+  for (int i=0; ; i++) {
+    fprintf(stdout, "i=%d\n", i);
+  }
+  exit();
+}
+
+This demo will show Safe OS contains the running of deadloop. Since Safe OS only allocate 5ms of CPU time to the program, so the deadloop will stop soon.
+
+SafeOS$ deadloop
+i=0
+i=1
+i=2
+i=3
+i=4
+i=5
+i=6
+i=7
+i=8
+i=9
+i=10
+i=11
+i=12
+i=13
+i=14
+i=15
+i=16
+i=17
+i=18
+i=19
+i=20
+i=21
+i=22
+i=23
+i=24
+i=25
+i=26
+i=27
+i=28
+i=29
+Exception: Run out of Time
+SafeOS$
+
+Interested in designing a Safe OS for humanity, 
+please join us in safeos.ai, 
+or email unatechie@gmail.com
+// Written by UnaTechie, Sept. 29, 2026

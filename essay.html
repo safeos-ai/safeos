@@ -161,10 +161,10 @@ To manage an AI agent as you would a human employee, an operating system require
         <p>Given the structural limitations of existing operating systems, I propose a safety-first principle for next-generation OS design. In a safe OS architecture, performance and efficiency must take a back seat. To echo Steve Jobs’s purse of Simplicity and Stay Foolish, we will keep our core architectural guardrails radically simple.
 Here is a UnaTechie’s framework to address this complex threat:</p>
         
-        <h4>4.1 Root-Mode (CPU Ring 1)</h4>
-        <p>Existing commercial operating systems rely entirely on a two-mode abstraction: Kernel-Mode (Ring 0) and User-Mode (Ring 3). A Safe OS must introduce a dedicated Root-Mode. This mode will handle control policies, risk reporting, and risk management exclusively.
-While big tech provides the Kernel-Mode infrastructure and frontier AI labs provide the User-Mode model code, the independent consumer and owner must hold exclusive control over Root-Mode. This layer will determine which AI agents are granted execution time, dictate the explicit duration and quantity of physical resources they can consume, and evaluate automated progress reports. It will autonomously decide whether an agent should proceed or stop based on pre-determined user policies.
-Mainstream x86 CPU hardware has featured four distinct Protection Rings since the 1980s. However, commercial operating systems only utilize Ring 0 for the kernel and Ring 3 for user applications. It is time to reclaim Ring 1 for Root-Mode.</p>
+        <h4>4.1 Owner-Mode (CPU Ring 1)</h4>
+        <p>Existing commercial operating systems rely entirely on a two-mode abstraction: Kernel-Mode (Ring 0) and User-Mode (Ring 3). A Safe OS must introduce a dedicated Owner-Mode. This mode will handle control policies, risk reporting, and risk management exclusively.
+While big tech provides the Kernel-Mode infrastructure and frontier AI labs provide the User-Mode model code, the independent consumer and owner must hold exclusive control over Owner-Mode. This layer will determine which AI agents are granted execution time, dictate the explicit duration and quantity of physical resources they can consume, and evaluate automated progress reports. It will autonomously decide whether an agent should proceed or stop based on pre-determined user policies.
+Mainstream x86 CPU hardware has featured four distinct Protection Rings since the 1980s. However, commercial operating systems only utilize Ring 0 for the kernel and Ring 3 for user applications. It is time to reclaim Ring 1 for Owner-Mode.</p>
         
         <h4>4.2 Dedicated CPU Core for the Global Scheduler</h4>
         <p>Multi-core processors have been mainstream since the 1990s, yet operating systems still rely heavily on localized schedulers distributed across individual work cores. Consequently, each scheduler only sees a localized, fragmented picture of system activity.
@@ -172,7 +172,7 @@ A safe architecture must assign a dedicated CPU core to act as a Global Schedule
 
         <h4>4.3 True Physical Memory Separation</h4>
         <p>In traditional operating systems, while each process is given its own virtual memory space, all virtual spaces are ultimately mapped dynamically to the exact same global pool of physical memory. Historically, the purpose of this shared physical pool was to give applications the illusion of total memory access while maximizing hardware efficiency. However, hackers and malicious software have repeatedly weaponized this shared foundation, using memory exploits and unauthorized long jumps across boundaries to seize control of the Kernel.
-In a Safe OS, this vulnerability is eradicated. Kernel-Mode, Root-Mode, and User-Mode will each be mapped to entirely separate, independent physical memory hardware pools, managed by distinct physical linked-lists. Period. By physically partitioning the RAM based on execution mode, memory-bleeding hacks and cross-boundary jumps become a physical impossibility, stopping memory exploits once and for all.</p>
+In a Safe OS, this vulnerability is eradicated. Kernel-Mode, Owner-Mode, and User-Mode will each be mapped to entirely separate, independent physical memory hardware pools, managed by distinct physical linked-lists. Period. By physically partitioning the RAM based on execution mode, memory-bleeding hacks and cross-boundary jumps become a physical impossibility, stopping memory exploits once and for all.</p>
 
         <h4>4.4 Context Switching as a Hardware Trap</h4>
         <p>When a standard OS switches execution from one task to another, it often leaves remnants of old data sitting in volatile CPU registers. In a Safe OS, we must treat context switching with the same level of strict isolation as a hardware exception or systemic trap.
@@ -180,7 +180,7 @@ The OS must completely save, clear, and restore all hardware registers during ev
 
         <h4>4.5 Immutable OS Updates (Dual-Slot Architecture)</h4>
         <p>The absolute last thing a user should ever have to see on their screen is: "Please wait. Windows is updating... 80%." There should be absolutely zero file updates permitted on a live, running kernel.
-Instead, a Safe OS will feature a dual-slot boot architecture combined with a strictly read-only core. When an update arrives, it is written entirely to an inactive, secondary disk slot while the system runs undisturbed. Furthermore, the exact policy, timing, and verification procedure for these OS updates will be determined exclusively by the user via Root-Mode—not by the OS provider. The consumer is firmly placed back in the driver’s seat.</p>
+Instead, a Safe OS will feature a dual-slot boot architecture combined with a strictly read-only core. When an update arrives, it is written entirely to an inactive, secondary disk slot while the system runs undisturbed. Furthermore, the exact policy, timing, and verification procedure for these OS updates will be determined exclusively by the user via Owner-Mode—not by the OS provider. The consumer is firmly placed back in the driver’s seat.</p>
 
         <h4>4.6 Self-Contained Application Installation</h4>
         <p>A Safe OS will only permit the installation of completely self-contained, "Green" applications. The days of messy, system-wide registries (like Windows regedit) must end.
@@ -273,6 +273,7 @@ SafeOS$</code></pre>
         please join us in safeos.ai, <br>
         or email unatechie@gmail.com<br>
         // Written by UnaTechie, Sept. 29, 2026
+        // Updated by UnaTechie, Oct. 10, 2026. Mainly, rename Root-Mode to Owner-Mode
     </p>
 
     <div style="margin-top: 60px; padding-top: 24px; border-top: 2px solid #eee; font-size: 0.85em; color: #555; line-height: 1.6;">

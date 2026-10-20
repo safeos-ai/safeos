@@ -1,0 +1,153 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>SafeOS Benchmark Implementation</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<h1>SafeOS Benchmark Implementation</h1>
+<p>This essay introduces how SafeOS, an operating system built on xv6 for x86, gives benchmark implementation of recommendations in the Manifesto. Each point of the framework runs in code, and was checked in QEMU and VMware.</p>
+<h2>4.1 Owner-Mode (CPU Ring 1): built</h2>
+<p><em>Existing commercial operating systems rely entirely on a two-mode abstraction: Kernel-Mode (Ring 0) and User-Mode (Ring 3). A Safe OS must introduce a dedicated Owner-Mode. This mode will handle control policies, risk reporting, and risk management exclusively.</em></p>
+<p><em>While big tech provides the Kernel-Mode infrastructure and frontier AI labs provide the User-Mode model code, the independent consumer and owner must hold exclusive control over Owner-Mode. This layer will determine which AI agents are granted execution time, dictate the explicit duration and quantity of physical resources they can consume, and evaluate automated progress reports. It will autonomously decide whether an agent should proceed or stop based on pre-determined user policies.</em></p>
+<p><em>Mainstream x86 CPU hardware has featured four distinct Protection Rings since the 1980s. However, commercial operating systems only utilize Ring 0 for the kernel and Ring 3 for user applications. It is time to reclaim Ring 1 for Owner-Mode.</em></p>
+<p>The manifesto asks for a mode between the kernel and the ordinary programs, held by the owner. SafeOS uses CPU Ring 1 for it.</p>
+<p><strong>The process.</strong> The Owner is a process whose code runs at Ring 1, in its own segments. Its program is built separately from the kernel and embedded in it, and at boot the kernel copies it into a process of its own. It is the only Owner, so Owner-Mode is a real third mode and not a naming convention.</p>
+<p><strong>The gate.</strong> The Owner cannot call kernel functions. It reaches the kernel only through one gate, interrupt 65, which offers 26 services. The kernel checks every argument, in particular that a pointer lies inside the Owner's own memory, and at the first chord it runs a self-test of the gate with 37 checks, reported as dispatcher checks: all pass. If the Owner faults, the kernel restarts it, and repeated faults stop it.</p>
+<p><strong>Exclusive control.</strong> The owner enters with a key chord and a passphrase, which is checked against a hash kept in the Owner block. The /owner directory holds the rules, the app records and the report logs, and no program can create, open, remove or link it. The guard works on the directory's inode number, so every path to it is refused. The guardtest program tries eleven such cases and all pass.</p>
+<p><strong>What the owner decides.</strong></p>
+<ul>
+    <li>Which programs may run: a registry of SHA-256 hashes, on by default. A program that is not listed does not start.</li>
+    <li>How much each may use: limits for a program or for a kind of program (App, Agent, Utilities) on CPU share, memory share, CPU ticks and output writes, with the action report, kill or deny.</li>
+    <li>Which apps are installed and what they report.</li>
+    <li>Stopping things by hand with kill, killall, killgroup and killkind.</li>
+</ul>
+<p><strong>Autonomous action.</strong> The kernel applies the policy while the owner is away. A program over its limit is stopped (Exception: Run out of Time), an agent group that uses more CPU ticks than its budget is killed as a group, and a softer limit only reports (CPU 21.2%, limit 20%: reported). Apps send progress reports through three system calls, and the owner reads them with reports. The number, tick and pid of each report are written by the kernel, and the text is the app's own claim.</p>
+<p><strong>Why it counts as a mode.</strong> Ring 3 programs cannot reach the Owner's memory or its directory, and the Owner reaches the kernel only through a gate that checks it. The kernel's own code does not decide the policy: it carries it out.</p>
+<h2>4.2 Dedicated core for the global scheduler: built</h2>
+<p><em>Multi-core processors have been mainstream since the 1990s, yet operating systems still rely heavily on localized schedulers distributed across individual work cores. Consequently, each scheduler only sees a localized, fragmented picture of system activity.</em></p>
+<p><em>A safe architecture must assign a dedicated CPU core to act as a Global Scheduler. This core will maintain a global view of all operations, physically executing the control policies, processing the risk reporting dashboards, and maintaining control on the system brakes.</em></p>
+<p>The manifesto asks for one core that holds the global view, instead of schedulers that each see only their own core.</p>
+<p><strong>One scheduler core.</strong> With two or more CPUs, CPU 0 is the scheduler. It hands every process to an idle worker, and it runs no program of its own except the owner's session, which it runs itself. The other cores are workers. The ps program shows the roles: 0 scheduler, 1 worker pid 37 ps. With a single CPU the one core has to do both, and ps shows sched+worker. The system was run at one, two, three and four CPUs, in QEMU and in VMware.</p>
+<p><strong>The owner on the scheduler core.</strong> The owner's session is small, so it runs on CPU 0 and never waits for a worker. In a captured run it used 124 ticks in 71,879, about 0.17% of the core. While two CPU burners held both workers of a 3-CPU machine, procs, groups and killgroup still answered at once, and procs listed the owner on CPU 0. The owner's CPU time is counted in its own figure, so procs shows it, and it is not added to the System group, whose percentages are measured against the workers.</p>
+<p><strong>One view of the machine.</strong> CPU use is sampled on CPU 0's timer tick. It looks at what every core is running and charges that process, at most once per tick. Because the accounting is done in one place, the figures are global:</p>
+<ul>
+    <li>procs lists every process with its share of the whole machine, and names the heaviest by CPU and by memory.</li>
+    <li>groups adds up the processes of each group across all the worker cores, and shows how busy and how idle the machine is.</li>
+    <li>status shows what each CPU is running now.</li>
+</ul>
+<p>The limits are written in the same terms. A limit on CPU is a percent of what the worker cores can do together, and not of one core: with two or more CPUs, CPU 0 is left out, so 100% is all the workers busy. A limit on memory is a percent of all the memory. A group's limit covers all its processes wherever they run. CPU ticks are counted per process and per group in the same units.</p>
+<p><strong>A worked example. </strong>A test agent ran a script that started three CPU burners, two of them in the background. At two CPUs there is one worker, so a percent here is a share of that worker. procs showed the three burners at 19%, 24% and 28%, and groups showed the agent's group, five processes in all, at 81% and later 87%. The CPU rule for agents warned once, when the group's average over the window first passed 20% (CPU 21.2%, limit 20%: reported), and the figure kept rising after that, because the window was still filling with load. killgroup ends a whole group at once. A person's own shell stayed in the Utilities group and was never counted with the agent.</p>
+<p><strong>Why the global view matters for safety.</strong> A rule such as "an agent may use at most 20% of the machine" has no meaning if each core only knows its own share. A burner on one worker and a burner on another would each look small. Charging all of them on one tick lets the owner state the limit once and have it hold, however many cores the agent spreads across.</p>
+<p><strong>Scope.</strong> The scheduler core is a role and not separate hardware. At one CPU it shares its time with the work, and on any machine it is an ordinary core that has been given the dispatching job and the owner's session. What the design provides is that dispatching and CPU accounting are done in one place that covers every core, and that the owner is served even when every worker is busy.</p>
+<h2>4.3 True physical memory separation: built</h2>
+<p><em>In traditional operating systems, while each process is given its own virtual memory space, all virtual spaces are ultimately mapped dynamically to the exact same global pool of physical memory. Historically, the purpose of this shared physical pool was to give applications the illusion of total memory access while maximizing hardware efficiency. However, hackers and malicious software have repeatedly weaponized this shared foundation, using memory exploits and unauthorized long jumps across boundaries to seize control of the Kernel.</em></p>
+<p><em>In a Safe OS, this vulnerability is eradicated. Kernel-Mode, Owner-Mode, and User-Mode will each be mapped to entirely separate, independent physical memory hardware pools, managed by distinct physical linked-lists. Period. By physically partitioning the RAM based on execution mode, memory-bleeding hacks and cross-boundary jumps become a physical impossibility, stopping memory exploits once and for all.</em></p>
+<p>The manifesto asks that kernel, owner and user memory sit in separate physical pools, each managed by its own list, so that no process can reach another mode's memory.</p>
+<p><strong>Three pools.</strong> At boot the kernel divides physical RAM into three ranges and prints them in the boot log:</p>
+<table>
+    <thead>
+        <tr>
+            <td width="121">
+                <p>Pool</p>
+            </td>
+            <td width="273">
+                <p>Physical range</p>
+            </td>
+            <td width="230">
+                <p>Pages of 4 KB</p>
+            </td>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td width="121">
+                <p>Kernel</p>
+            </td>
+            <td width="273">
+                <p>0 to 32 MB</p>
+            </td>
+            <td width="230">
+                <p>about 7,850</p>
+            </td>
+        </tr>
+        <tr>
+            <td width="121">
+                <p>Owner</p>
+            </td>
+            <td width="273">
+                <p>32 MB to 64 MB</p>
+            </td>
+            <td width="230">
+                <p>8,192</p>
+            </td>
+        </tr>
+        <tr>
+            <td width="121">
+                <p>User</p>
+            </td>
+            <td width="273">
+                <p>64 MB to 224 MB</p>
+            </td>
+            <td width="230">
+                <p>40,960</p>
+            </td>
+        </tr>
+    </tbody>
+</table>
+<p>The kernel pool has fewer pages than the Owner pool, although both ranges are 32 MB, which is 8,192 pages. The first megabyte of the range holds the BIOS area and the boot code, and the kernel's own image sits above it, so about 340 pages never go into the pool. The page directories and page tables of every process are then taken from the kernel pool's free pages, and show up as used pages in ps.</p>
+<p><strong>Separate lists.</strong> Each pool has its own free list of pages, so a page that belongs to one pool is never handed out by another. The memory of user processes comes from the user pool, and the Owner's pages come from the Owner pool. The ps program prints free, used and total pages for each pool. At idle only about 319 kernel pages, 13 user pages and 1 Owner page are in use.</p>
+<p><strong>Mapping.</strong> The pools are enforced by the page tables that the CPU walks. A user process's page table maps its own pages from the user pool. The Owner pool is mapped only into the Owner's own page table. A kernel probe, used by the Owner's memory command, counts the live page tables that map the Owner pool, and only the Owner's should be found.</p>
+<p><strong>When a pool runs out.</strong> A process that asks for too much memory exhausts the user pool, and the kernel and the Owner are not affected. The usertests suite does this on purpose. It prints allocuvm out of memory several times, the allocation is refused, and the suite goes on and passes.</p>
+<p><strong>Limits on top of the pools.</strong> The owner can also cap a group's share of memory. The default for apps and agents is 10% of the machine with the action kill, and the figure is a percent of the whole machine and not of one pool.</p>
+<p><strong>Why separate pools.</strong> In one shared pool, a stray or forged mapping can land on any mode's page. Here the allocator never gives a user process a page from the Owner pool, and a user process's page table does not map it, so there is no ordinary route from user memory into the Owner's.</p>
+<p><strong>Scope.</strong> The separation is by physical address range and page tables, enforced by the CPU's memory unit, on one set of RAM chips. The pools are not separate hardware, and the claim is that the allocator never mixes them and the mappings never expose them.</p>
+<h2>4.4 Context switching as a hardware trap: built</h2>
+<p><em>When a standard OS switches execution from one task to another, it often leaves remnants of old data sitting in volatile CPU registers. In a Safe OS, we must treat context switching with the same level of strict isolation as a hardware exception or systemic trap.</em></p>
+<p><em>The OS must completely save, clear, and restore all hardware registers during every single switch. This exhaustive purging ensures that rogue applications or agents cannot weaponize register leftovers, for example a planted value that another task later uses as a jump target, through malicious jumps or register-leakage techniques to compromise the system.</em></p>
+<p>The manifesto asks that a context switch be treated like a hardware trap: everything is saved, cleared and restored, so that nothing one task leaves in a register can be used by another.</p>
+<p><strong>What is switched. </strong>Each process has a saved image of the x87 floating-point unit, 108 bytes taken with fnsave. At every switch away from a process, the kernel saves that image and clears the FPU. A process that starts fresh gets an empty one: allocproc() clears the image, so a recycled process slot never inherits a stale one. The switch code saves the four callee-saved registers (ebp, ebx, esi and edi) on the old process's stack and loads the next process's own. It then zeroes the three caller-saved registers, eax, ecx and edx, which would otherwise carry over whatever the previous task left in them, and which still hold kernel context pointers at that point. When a process returns to user mode, its trap frame restores its own registers.</p>
+<p><strong>Two tests, both inside </strong><strong>safeostests</strong><strong>.</strong></p>
+<ul>
+    <li>regtest starts three processes that run the same checks at once. Each loads five general registers with values of its own and spins through three million loop iterations. Each also puts a value of its own on the x87 stack and takes it off after the spin. The timer switches between the three processes many times during every spin. After 40 rounds the test reports that no general register and no x87 stack changed: changed 0 times, x87 stack 0 times.</li>
+    <li>fpuleak has the parent fill the x87 stack with three values, then lets a child read the stack's tag word. A tag word of 0xffff means every register is empty, and that is what the child sees: no leak, the child saw an empty x87 stack. The test is strongest at one CPU, where both processes share one FPU, as its own comment says.</li>
+</ul>
+<p><strong>Results.</strong> Both pass at one, two, three and four CPUs, in QEMU and in VMware, and they run as part of safeostests with the rest of the system in place.</p>
+<p><strong>Why the x87 stack.</strong> It is the register file that ordinary code never looks at, so a leftover value there is easy to miss. A task could plant a value and a later task could pick it up, or a task could learn what another computed. Clearing it at every switch removes that channel, and fpuleak is the direct check that it stays removed.</p>
+<p><strong>Scope. </strong>The clearing is explicit for the x87 state and for the three caller-saved general registers, and the four callee-saved registers are replaced by the next process's own values. So no general register carries a value from one task to the next. The test regtest checks that each process gets back exactly its own values while the timer switches between them.</p>
+<h2>4.5 Immutable OS updates: built in part</h2>
+<p><em>The absolute last thing a user should ever have to see on their screen is: "Please wait. Windows is updating... 80%." There should be absolutely zero file updates permitted on a live, running kernel.</em></p>
+<p><em>Instead, a Safe OS will feature a dual-slot boot architecture combined with a strictly read-only core. When an update arrives, it is written entirely to an inactive, secondary disk slot while the system runs undisturbed. Furthermore, the exact policy, timing, and verification procedure for these OS updates will be determined exclusively by the user via Owner-Mode&mdash;not by the OS provider. The consumer is firmly placed back in the driver&rsquo;s seat.</em></p>
+<p>The manifesto asks that a running system is never modified, that an update is written to an inactive slot, and that the owner and not the vendor controls how updates happen. Part of this is built.</p>
+<p><strong>Built: a core that cannot be changed while it runs.</strong></p>
+<ul>
+    <li>At boot, before any program runs, the kernel reads the /bin directory and records the inode of every program in it, and the inode of /init. From then on no program can write, truncate, remove or give a second name to any of them, by any path. The root names /sh and /echo are the same inodes as the files in /bin, so they are covered too.</li>
+    <li>No name can be created, removed or linked inside /bin, and the names bin, init and sh in the root cannot be removed or linked. Reading, listing, running and copying out of /bin still work.</li>
+    <li>Installed apps are sealed in the same way (see 4.6).</li>
+    <li>The kernel is not in the file system at all. It lives on its own disk image, separate from the file system that programs see, so no file operation can reach it.</li>
+    <li>A program whose bytes change is no longer the program the registry approved. The registry is a table of hashes compiled into the kernel, so with the registry on, a changed program does not start.</li>
+</ul>
+<p><strong>Tested.</strong> The commands rm, echo &gt;, touch, mkdir, cp, mv and ln, aimed at /bin, /init and /sh, were all refused, while reading and running worked. The Owner is exempt, so install and uninstall still work, and a build flag opens the seal for the tamper tests.</p>
+<p><strong>Built: two kernel slots and an owner who chooses.</strong> The boot gate runs before any kernel. It holds two kernels on one disk, stock xv6 and SafeOS. At the first boot the owner sets a passphrase and picks the default kernel, and every later boot offers a menu for ten seconds. The gate records its work in the Owner block: the kernel chosen for the next boot, the stage the hand-over reached (confirmed in a normal boot) and a count of failed trials. All three show in the Owner's status. This is the machinery that an update with fallback needs.</p>
+<p><strong>Not built.</strong> Writing a new kernel or system image into an inactive slot while the system runs, switching to it after a trial boot, and an owner-set policy for when and how that happens. Today a new system image is built on the development machine and the disk is replaced. The programs on a running system are never modified, so an "updating, 80%" screen cannot appear, but that is because nothing updates, and not because a safe update exists yet.</p>
+<p><strong>Next step.</strong> The parts in place are the two slots, the trial counter and the read-only core. What is missing is the writer that fills the inactive slot and the owner command that approves the switch.</p>
+<h2>4.6 Self-contained application installation: built</h2>
+<p><em>A Safe OS will only permit the installation of completely self-contained, "Green" applications. The days of messy, system-wide registries (like Windows regedit) must end.</em></p>
+<p><em>The OS should adopt an isolated, bundle-centric approach similar to Android&rsquo;s APK/Bundle style. All application configurations, libraries, and binaries must reside cleanly within their own directory wrapper. Additionally, runtime updates will be entirely blocked; an application cannot alter its own files while it is actively executing.</em></p>
+<p>The manifesto asks that applications be self-contained bundles with no system-wide registry, in the style of an Android package, and that an app cannot alter its own files while it runs.</p>
+<p><strong>The bundle.</strong> The owner stages an app in /inbox/&lt;app&gt;/ as two files: the program and manifest.txt. The manifest is plain text with a few keys: name, kind (app or agent), a one-line goal, an optional deps and requires (the CPU ticks and output writes allowed per process), an optional report schedule, and one commands line that names the program and gives its SHA-256. Unknown keys are refused, so a manifest cannot ask for something the system does not understand.</p>
+<p><strong>The install.</strong> The owner types install &lt;app&gt;. The Owner shows the manifest with line numbers, marks the line with a mistake if there is one, and refuses a manifest that has any. The kernel checks that the program's hash matches the manifest, and that each requires stays under the owner's ceiling for that kind, for example the Agent rule on CPU ticks. Then the owner answers y or n. After the session has closed, the kernel copies the bundle to /apps/&lt;app&gt;/, hashes the copies, records the app in /owner/apps (name, kind, goal, report schedule and both hashes), and turns the requires into kill rules. The program is now registered by its hash, and it runs in a group of its own. Only one install or removal can be approved in a session, so the owner always knows what a session changed.</p>
+<p><strong>Everything in one directory.</strong> The app's program, its manifest and its report log live under /apps/&lt;app&gt;/. There is no shared settings store. The program registry is an allow-list of hashes and holds no settings, and an app's limits come from its own manifest. An uninstall removes the app's processes, its record, its rules and its directory together, and at every boot a directory in /apps that has no record is removed.</p>
+<p><strong>No runtime changes.</strong> The guard works by inode number. /apps, each app's directory, its manifest and its program cannot have a name created, removed or linked inside them, cannot be written or truncated, and cannot be given a second name, by any program. That includes the app itself, whether or not it is running. The report log is reachable only through three system calls, read_report(), write_report, and clear_report(), so even the app cannot open its own status.txt, and the kernel writes the number, tick and pid of every record.</p>
+<p><strong>Checked.</strong> Two test bundles install and uninstall, testapp as an app and testagent as an agent. Eleven deliberately bad bundles are refused, for a wrong hash, a wrong kind, a dependency that does not exist, a request over the ceiling and similar mistakes. A tamper test inside an installed app tries four forbidden changes and is refused each time.</p>
+<h2>4.7 Secure I/O Read and Write: yet to build</h2>
+<p><em>Finally, input/output operations must be entirely reimagined. We should mandate Rust-style memory semantics, enforcing strict data ownership through a "Move" or "Copy-Once" pipeline wherever possible.</em></p>
+<p><em>By preventing multiple processes or background agents from holding shared, mutable references to the same data buffers, we eliminate entirely the race conditions, dangling pointers, and unauthorized data modifications that plague legacy I/O architectures.</em></p>
+<p>&nbsp;</p>
+<p>// Written by Una Techie, Oct 18, 2026</p>
+<p>&nbsp;</p>
+
+</body>
+</html>

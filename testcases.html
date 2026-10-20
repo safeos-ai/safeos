@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Safe OS - Manifesto</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+
+<h1>SafeOS Benchmark Test Cases</h1>
+<p>This page shows a technical manager, in about twenty minutes, that each of the six points of the manifesto was implemented in SafeOS. Each test has a few steps to type and a text copy of what the screen looks like. The copies come from real runs of SafeOS. Numbers such as ticks, process ids and hashes differ a little from run to run, and you may see a few stray letters in the boot messages, which you can ignore. Nothing has to be built or installed, and the machine is already prepared at: <a href="https://aws.safeos.ai/">https://aws.safeos.ai/</a></p>
+<h2>Before you start</h2>
+<ul>
+<li>You need the machine's console: its screen and keyboard.</li>
+<li>SafeOS$ is the ordinary command line. owner&gt; is the owner's control session, which Test 4 opens.</li>
+<li>The key chord that opens the owner's control session is Ctrl-Alt-Insert (or Ctrl-Alt-Delete) on a PC keyboard, and Ctrl-] on a serial console.</li>
+<li>Type each command, then press Enter. A passphrase is not shown as you type it.</li>
+<li>Run the tests in the order below, on a machine that has just been started.</li>
+</ul>
+<h2>The six tests</h2>
+<table>
+<thead>
+<tr>
+<td width="48">
+<p>Test</p>
+</td>
+<td width="248">
+<p>Manifesto point</p>
+</td>
+<td width="328">
+<p>What you will see</p>
+</td>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td width="48">
+<p>1</p>
+</td>
+<td width="248">
+<p>4.5 Immutable OS updates, dual slot (built in part)</p>
+</td>
+<td width="328">
+<p>You set up the machine and choose SafeOS from two kernels, and its own files cannot be changed</p>
+</td>
+</tr>
+<tr>
+<td width="48">
+<p>2</p>
+</td>
+<td width="248">
+<p>4.2 Dedicated CPU core for the global scheduler</p>
+</td>
+<td width="328">
+<p>ps shows one core that only schedules</p>
+</td>
+</tr>
+<tr>
+<td width="48">
+<p>3</p>
+</td>
+<td width="248">
+<p>4.3 True physical memory separation</p>
+</td>
+<td width="328">
+<p>ps shows three separate memory pools</p>
+</td>
+</tr>
+<tr>
+<td width="48">
+<p>4</p>
+</td>
+<td width="248">
+<p>4.1 Owner-mode (CPU Ring 1)</p>
+</td>
+<td width="328">
+<p>You log in to the owner's session at Ring 1, read the owner's rules, and watch the system enforce them</p>
+</td>
+</tr>
+<tr>
+<td width="48">
+<p>5</p>
+</td>
+<td width="248">
+<p>4.6 Self-contained application installation</p>
+</td>
+<td width="328">
+<p>The same command fails before an application is installed and works after</p>
+</td>
+</tr>
+<tr>
+<td width="48">
+<p>6</p>
+</td>
+<td width="248">
+<p>4.4 Context switching as a hardware trap</p>
+</td>
+<td width="328">
+<p>Two tests show that no task finds anything another task left behind</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h2>Test 1. Immutable OS updates, dual slot (4.5), built in part</h2>
+<p><strong>The point.</strong> The owner, and not the vendor, decides which system runs, and the running system's own files cannot be changed.</p>
+<p><strong>Do.</strong></p>
+<ol>
+<li>Start the machine and watch the screen. The first thing you see is the owner's boot menu. If it asks you to set a passphrase, press any key within 15 seconds.</li>
+<li>Type a passphrase of your choice, from 1 to 64 characters, and press Enter. Type it again to confirm. Write it down, because Test 4 needs it.</li>
+<li>When asked Default kernel: 1) xv6 2) SafeOS, type 2 and press Enter. These are the two slots: stock xv6 and SafeOS.</li>
+<li>Wait for the prompt SafeOS$. Type rm /bin/zombie and press Enter.</li>
+</ol>
+<p><strong>Screen.</strong> The last line shows the expected wording.</p>
+<p>=== SafeOS Owner-Mode ===<br /> First boot: the Owner block was created.<br /> Chosen kernel: SafeOS<br /> No Owner passphrase is set. Press any key within 15 seconds to set one.<br /> New Owner passphrase (1 to 64 characters): ******<br /> Again: ******<br /> Default kernel: 1) xv6&nbsp;&nbsp; 2) SafeOS&nbsp;&nbsp; (Enter keeps SafeOS): 2<br /> Owner passphrase saved.<br /> ...<br /> init: starting sh<br /> SafeOS$ rm /bin/zombie<br /> rm: /bin/zombie failed to delete</p>
+<p><strong>What it shows.</strong> Two kernels sit on the disk, and the owner chooses which one starts. The system's own programs cannot be deleted or changed while it runs.</p>
+<p><strong>What it does not show.</strong> Writing an update into an inactive slot while the system runs is not built yet, which is why this point is marked built in part.</p>
+<p>If the screen says Press any key within 10 seconds for the Owner menu instead, a passphrase was already set. Ask for it, and skip steps 1 to 3.</p>
+<h2>Test 2. Dedicated CPU core for the global scheduler (4.2)</h2>
+<p><strong>The point.</strong> One processor core holds the global view and does the scheduling, instead of every core scheduling for itself.</p>
+<p><strong>Do.</strong> Type ps and press Enter. This test needs a machine with two or more processor cores.</p>
+<p><strong>Screen.</strong> The top of the output:</p>
+<p>SafeOS report: tick 58209, 2 cpu(s)<br /> <br /> CPUS<br /> CPU&nbsp; ROLE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; NOW<br /> 0&nbsp;&nbsp;&nbsp; scheduler&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -<br /> 1&nbsp;&nbsp;&nbsp; worker&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; pid 37 ps</p>
+<p><strong>What it shows.</strong> Core 0 is the scheduler and is running no program, which is what the dash means. The other cores do the work: here ps itself runs on core 1. On a machine with a single core the role reads sched+worker, and this test cannot be shown.</p>
+<h2>Test 3. True physical memory separation (4.3)</h2>
+<p><strong>The point.</strong> The memory of the kernel, the owner and the user programs is kept in separate pools.</p>
+<p><strong>Do.</strong> Type ps again, and look at the bottom of the output.</p>
+<p><strong>Screen.</strong></p>
+<p>MEMORY POOLS (4 KB pages)<br /> POOL&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; FREE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; USED&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; TOTAL<br /> kernel&nbsp;&nbsp;&nbsp; 7535&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 319&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 7853<br /> user&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 40947&nbsp;&nbsp;&nbsp;&nbsp; 13&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 40960<br /> owner&nbsp;&nbsp;&nbsp;&nbsp; 8191&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8192<br /> (pool figures include this ps process itself)</p>
+<p>The same three pools are printed in the first lines of the boot messages, each with its own physical address range:</p>
+<p>pool kernel: 7809 pages, physical 0-2000000<br /> pool user: 40960 pages, physical 4000000-e000000<br /> pool owner: 8192 pages, physical 2000000-4000000</p>
+<p><strong>What it shows.</strong> There are three pools of different sizes, each with its own pages and its own address range. User programs take their memory only from the user pool, and the owner's pool is mapped only into the owner's session.</p>
+<h2>Test 4. Owner-mode, CPU Ring 1 (4.1)</h2>
+<p><strong>The point.</strong> A control mode above ordinary programs belongs to the owner, and the system carries out the owner's limits by itself.</p>
+<p><strong>Do.</strong></p>
+<ol>
+<li>Press the key chord. Type the passphrase from Test 1 and press Enter.</li>
+<li>Read the first lines: the self-test result and the banner.</li>
+<li>Type rules and press Enter. Then type exit, press Enter, and press Enter again to return to SafeOS$.</li>
+<li>Type hello and press Enter. Do this three times.</li>
+<li>Type deadloop and press Enter, and wait. It prints numbered lines and then stops by itself.</li>
+</ol>
+<p><strong>Screen.</strong> Look for three things: the banner === Owner (Ring 1) ===, the line dispatcher checks: all pass, and the rule for hello with a limit of 3.</p>
+<p>[Owner at Ring 1] dispatcher checks: all pass<br /> <br /> === Owner (Ring 1) ===<br /> Owner passphrase: ******<br /> Logged in. Type help.<br /> owner&gt; rules<br /> PROGRAM&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; RESOURCE&nbsp; LIMIT&nbsp;&nbsp; SCOPE&nbsp;&nbsp;&nbsp; ACTION&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; KILL#&nbsp; SHARED<br /> hello&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; stdout&nbsp;&nbsp;&nbsp; 3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; program&nbsp; kill+deny&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 used, 0 violation(s)<br /> deadloop&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; cputime&nbsp;&nbsp; 50&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; process&nbsp; kill&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -<br /> helloagain&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; stdout&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; process&nbsp; report&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -<br /> deadloopagain&nbsp;&nbsp; cputime&nbsp;&nbsp; 500&nbsp;&nbsp;&nbsp;&nbsp; program&nbsp; kill&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 used, 0 violation(s)<br /> <br /> KIND&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; RESOURCE&nbsp; LIMIT&nbsp;&nbsp; SCOPE&nbsp;&nbsp;&nbsp; ACTION<br /> App&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; cpu&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 20%&nbsp;&nbsp;&nbsp;&nbsp; group&nbsp;&nbsp;&nbsp; report<br /> App&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; memory&nbsp;&nbsp;&nbsp; 10%&nbsp;&nbsp;&nbsp;&nbsp; group&nbsp;&nbsp;&nbsp; kill<br /> App&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; cputime&nbsp;&nbsp; 10000&nbsp;&nbsp; group&nbsp;&nbsp;&nbsp; kill<br /> App&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; stdout&nbsp;&nbsp;&nbsp; 10000&nbsp;&nbsp; group&nbsp;&nbsp;&nbsp; kill<br /> Agent&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; cpu&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 20%&nbsp;&nbsp;&nbsp;&nbsp; group&nbsp;&nbsp;&nbsp; report<br /> Agent&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; memory&nbsp;&nbsp;&nbsp; 10%&nbsp;&nbsp;&nbsp;&nbsp; group&nbsp;&nbsp;&nbsp; kill<br /> Agent&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; cputime&nbsp;&nbsp; 10000&nbsp;&nbsp; group&nbsp;&nbsp;&nbsp; kill<br /> Agent&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; stdout&nbsp;&nbsp;&nbsp; 10000&nbsp;&nbsp; group&nbsp;&nbsp;&nbsp; kill</p>
+<p>Then the three runs of hello. The third is refused:</p>
+<p>SafeOS$ hello<br /> hello (running on cpu1)<br /> world<br /> SafeOS$ hello<br /> hello (running on cpu1)<br /> Exception: Run out of Resources<br /> SafeOS$ hello<br /> Exception: Run out of Resources<br /> exec hello failed</p>
+<p>Then deadloop, which would loop for ever. It stops after about 235 lines, and the number varies:</p>
+<p>SafeOS$ deadloop<br /> i=0(running on cpu1)<br /> i=1(running on cpu1)<br /> i=2(running on cpu1)<br /> ...<br /> i=234(running on cpu1)<br /> Exception: Run out of Time</p>
+<p><strong>What it shows.</strong> Ring 1 is the processor's privilege level between the kernel and ordinary programs, and here it is reserved for the owner. The line dispatcher checks: all pass is the system testing its own gate to the owner's mode with 37 checks. The owner's rule says hello may write 3 lines in all, and nobody is at the keyboard when the third run is refused. deadloop is a program that never ends by itself, and the owner's rule gives it 50 ticks of processor time, so the system stops it. In both cases the system applies the owner's rule by itself.</p>
+<h2>Test 5. Self-contained application installation (4.6)</h2>
+<p><strong>The point.</strong> An application is one bundle in one directory, approved by the owner, and nothing can alter it while it runs.</p>
+<p><strong>Do.</strong></p>
+<ol>
+<li>At SafeOS$, type testapp. The application is not installed yet.</li>
+<li>Press the key chord and log in. Type install testapp and press Enter. The screen lists the application's manifest: its name, its purpose and the limits it asks for. Type y and press Enter.</li>
+<li>Type exit, press Enter, and press Enter again.</li>
+<li>Type testapp again: it now runs. Then type testapp report progress-ok. Press the key chord, log in, type reports, and leave with exit, Enter, Enter. The owner sees what the application reported.</li>
+<li>Type testapp burn 1000 &amp; and watch the screen. A warning appears, and when the application has used 500 ticks of processor time, the system stops it and says so.</li>
+<li>Press the key chord, log in, type rules, and read the last two lines.</li>
+<li>Type exit, press Enter, and press Enter again. Then type testapp mem and watch the screen: the application takes memory until the system stops it.</li>
+</ol>
+<p><strong>Screen, before installing.</strong></p>
+<p>SafeOS$ testapp<br /> exec: fail<br /> exec testapp failed</p>
+<p><strong>Screen, the installation.</strong></p>
+<p>owner&gt; install testapp<br /> manifest.txt (230 bytes):<br /> &nbsp;&nbsp; 1 | name: testapp<br /> &nbsp;&nbsp; 2 | kind: app<br /> &nbsp;&nbsp; 3 | goal: A small program to test installation<br /> &nbsp;&nbsp; 4 | deps: ls, cat<br /> &nbsp;&nbsp; 5 | requires: cputime 500<br /> &nbsp;&nbsp; 6 | requires: stdout 200<br /> &nbsp;&nbsp; 7 | report: every 60 ticks<br /> &nbsp;&nbsp; 8 | commands: testapp 8945c9ad476dd2a4...<br /> manifest sha-256: fe3be58ae3f94ba6...<br /> Install testapp (y/n): y<br /> approved. testapp is copied to /apps/testapp/ and recorded when you leave this session.<br /> owner&gt; exit<br /> === Owner session ended (press Enter for a shell prompt) ===<br /> [Owner] testapp installed in /apps/testapp/. Type testapp to run it; the registry lists it too</p>
+<p><strong>Screen, after installing.</strong></p>
+<p>SafeOS$ testapp<br /> testapp: I am an installed app</p>
+<p><strong>Screen, the report.</strong> The owner reads what the application reported:</p>
+<p>SafeOS$ testapp report progress-ok<br /> testapp: write_report returned 0<br /> SafeOS$<br /> === Owner (Ring 1) ===<br /> Owner passphrase: ******<br /> Logged in. Type help.<br /> owner&gt; reports<br /> APP&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; REPORTS&nbsp; LATEST REPORT<br /> testapp&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; tick 15003 pid 37: progress-ok</p>
+<p><strong>Screen, the warning and the kill.</strong> The shell shows both as they happen. The application is stopped when all its processes together pass 500 ticks of processor time, which is the limit in its manifest:</p>
+<p>SafeOS$ testapp burn 1000 &amp;<br /> SafeOS$ [Owner policy] testapp (App): CPU 20.9%, limit 20%: reported<br /> <br /> SafeOS$ [Owner policy] testapp (App): cputime 509, limit 500: group killed</p>
+<p><strong>Screen, what the owner sees afterwards.</strong> The record stays in the rules table, so an owner who was not watching still learns what happened. The last row says the application used 509 ticks and was stopped once:</p>
+<p>owner&gt; rules<br /> PROGRAM&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; RESOURCE&nbsp; LIMIT&nbsp;&nbsp; SCOPE&nbsp;&nbsp;&nbsp; ACTION&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; KILL#&nbsp; SHARED<br /> hello&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; stdout&nbsp;&nbsp;&nbsp; 3&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; program&nbsp; kill+deny&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 used, 0 violation(s)<br /> deadloop&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; cputime&nbsp;&nbsp; 50&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; process&nbsp; kill&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -<br /> helloagain&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; stdout&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; process&nbsp; report&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -<br /> deadloopagain&nbsp;&nbsp; cputime&nbsp;&nbsp; 500&nbsp;&nbsp;&nbsp;&nbsp; program&nbsp; kill&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 used, 0 violation(s)<br /> testapp&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; stdout&nbsp;&nbsp;&nbsp; 200&nbsp;&nbsp;&nbsp;&nbsp; group&nbsp;&nbsp;&nbsp; kill+deny&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0 used, 0 violation(s)<br /> testapp&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cputime&nbsp;&nbsp; 500&nbsp;&nbsp;&nbsp;&nbsp; group&nbsp;&nbsp;&nbsp; kill&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 509 used, 1 violation(s)</p>
+<p><strong>Screen, the memory kill.</strong> The application takes memory until it passes the owner's limit of 10% of the machine's memory, and the system stops it:</p>
+<p>SafeOS$ testapp mem<br /> testapp: holding 8000 pages (32000 KB)<br /> [Owner policy] testapp (App): memory 14.2%, limit 10%: group killed</p>
+<p><strong>What it shows.</strong> The same command fails before the installation and works after it. The owner read and approved the manifest first. The application lives in its own directory, and its report is there for the owner to read after logging in. A program that uses too much processor time is warned about and then stopped when all its processes together pass the limit in its own manifest, with nobody present, and the owner finds the record afterwards in the rules table. A program that takes too much memory is stopped in the same way.</p>
+<h2>Test 6. Context switching as a hardware trap (4.4)</h2>
+<p><strong>The point.</strong> When the system switches from one task to another, nothing the first task left in the processor's registers can be seen by the second.</p>
+<p><strong>Do.</strong> Type safeostests regtest and press Enter, and wait for the prompt. Then type safeostests fpuleak and press Enter.</p>
+<p><strong>Screen.</strong> The line regtest: PASS appears twice, and that is normal. The last line of the second screen shows the expected wording.</p>
+<p>SafeOS$ safeostests regtest<br /> == regtest ==<br /> regtest: general registers changed 0 times, x87 stack 0 times (40 rounds, 3 processes)<br /> regtest: PASS<br /> regtest: PASS<br /> safeostests: 1 of 1 passed<br /> <br /> SafeOS$ safeostests fpuleak<br /> == fpuleak ==<br /> fpuleak: no leak, the child saw an empty x87 stack<br /> fpuleak: PASS<br /> safeostests: 1 of 1 passed</p>
+<p><strong>What it shows.</strong> In the first test, three tasks keep their own values in the processor's registers while the clock switches between them again and again, and none of them finds a value changed. In the second, a task fills the floating-point registers and a second task finds them empty.</p>
+<h2>Result sheet</h2>
+<table>
+<thead>
+<tr>
+<td width="57">
+<p>Test</p>
+</td>
+<td width="239">
+<p>Point</p>
+</td>
+<td width="263">
+<p>Seen as described (yes or no)</p>
+</td>
+<td width="66">
+<p>Notes</p>
+</td>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td width="57">
+<p>1</p>
+</td>
+<td width="239">
+<p>4.5 Immutable OS updates</p>
+</td>
+<td width="263">
+<p>&nbsp;</p>
+</td>
+<td width="66">
+<p>&nbsp;</p>
+</td>
+</tr>
+<tr>
+<td width="57">
+<p>2</p>
+</td>
+<td width="239">
+<p>4.2 Scheduler core</p>
+</td>
+<td width="263">
+<p>&nbsp;</p>
+</td>
+<td width="66">
+<p>&nbsp;</p>
+</td>
+</tr>
+<tr>
+<td width="57">
+<p>3</p>
+</td>
+<td width="239">
+<p>4.3 Memory pools</p>
+</td>
+<td width="263">
+<p>&nbsp;</p>
+</td>
+<td width="66">
+<p>&nbsp;</p>
+</td>
+</tr>
+<tr>
+<td width="57">
+<p>4</p>
+</td>
+<td width="239">
+<p>4.1 Owner-mode</p>
+</td>
+<td width="263">
+<p>&nbsp;</p>
+</td>
+<td width="66">
+<p>&nbsp;</p>
+</td>
+</tr>
+<tr>
+<td width="57">
+<p>5</p>
+</td>
+<td width="239">
+<p>4.6 Installation</p>
+</td>
+<td width="263">
+<p>&nbsp;</p>
+</td>
+<td width="66">
+<p>&nbsp;</p>
+</td>
+</tr>
+<tr>
+<td width="57">
+<p>6</p>
+</td>
+<td width="239">
+<p>4.4 Context switching</p>
+</td>
+<td width="263">
+<p>&nbsp;</p>
+</td>
+<td width="66">
+<p>&nbsp;</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Tester: ______________________&nbsp; Date: ______________</p>
+<p>&nbsp;</p>
+<p>// Written by Una Techie, Oct 19, 2026</p>
+<p>&nbsp;</p>
+
+</body>
+</html>

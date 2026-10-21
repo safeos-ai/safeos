@@ -1,0 +1,7 @@
+name: testagent
+kind: agent
+goal: A small agent to test installing an agent
+deps: ls, cat
+requires: cputime 500
+requires: stdout 200
+report: every 60 ticks

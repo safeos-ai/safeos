@@ -1,0 +1,43 @@
+# The preinstalled programs: name, kind (system, tool, app or agent), and "dev" for programs listed
+# only in a build made with DEV_PROGRAMS=1. The hashes come from the built programs (genreg.pl).
+init       system
+sh         tool
+ls         tool
+cat        tool
+echo       tool
+grep       tool
+wc         tool
+mkdir      tool
+rm         tool
+ln         tool
+kill       tool
+ps         tool
+time       tool
+shutdown   tool
+zombie     tool
+pwd        tool
+
+safeostests tool
+rmdir tool
+touch tool
+head tool
+cp tool
+mv tool
+more tool
+usertests  tool
+forktest   tool
+lockstress tool   dev
+regtest    tool   dev
+fpuleak    tool   dev
+guardtest  tool   dev
+killtest   tool   dev
+slowprint  tool   dev
+cpubound   tool   dev
+preempttest tool  dev
+stressfs   tool
+hello      app
+helloagain app
+deadloop   agent
+deadloopagain agent
+grptest    agent  dev
+forkbomb   agent  dev

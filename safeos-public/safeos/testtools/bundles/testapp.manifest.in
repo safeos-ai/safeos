@@ -1,0 +1,7 @@
+name: testapp
+kind: app
+goal: A small program to test installation
+deps: ls, cat
+requires: cputime 500
+requires: stdout 200
+report: every 60 ticks

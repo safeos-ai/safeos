@@ -1,0 +1,97 @@
+
+// ---- the driver: runs the five tests one after the other, each in a child, and says PASS or FAIL for each ----
+// usage: safeostests [guardtest|killtest|regtest|fpuleak|lockstress]    (lockstress runs 500 iterations)
+static char tout[2048];
+
+static int
+has(char *hay, int n, char *needle)
+{
+  int i, j;
+
+  for(i = 0; i < n; i++){
+    for(j = 0; needle[j] && i + j < n && hay[i + j] == needle[j]; j++)
+      ;
+    if(needle[j] == 0)
+      return 1;
+  }
+  return 0;
+}
+
+static int
+run_one(char *name, int which)
+{
+  int p[2], n, total = 0, pid, ok;
+  char chunk[256];
+  char *av[3];
+
+  printf(1, "== %s ==\n", name);        // the header first, so a slow test is not mistaken for a hang
+  if(pipe(p) < 0){
+    printf(1, "%s: cannot make a pipe\n", name);
+    return 0;
+  }
+  pid = fork();
+  if(pid < 0){
+    printf(1, "%s: fork failed\n", name);
+    return 0;
+  }
+  if(pid == 0){
+    close(1);
+    dup(p[1]);                       // the test's output goes into the pipe
+    close(p[0]);
+    close(p[1]);
+    switch(which){
+    case 0: guardtest_main(); break;
+    case 1: killtest_main(); break;
+    case 2: regtest_main(); break;
+    case 3: fpuleak_main(); break;
+    default:
+      av[0] = "lockstress";
+      av[1] = "500";
+      av[2] = 0;
+      lockstress_main(2, av);
+    }
+    exit();
+  }
+  close(p[1]);
+  while((n = read(p[0], chunk, sizeof(chunk))) > 0){
+    write(1, chunk, n);              // shown as it arrives
+    if(total + n < (int)sizeof(tout) - 1){
+      memmove(tout + total, chunk, n);
+      total += n;
+    }
+  }
+  close(p[0]);
+  wait();
+  tout[total] = 0;
+  if(total > 0 && tout[total - 1] != '\n')
+    printf(1, "\n");
+  switch(which){
+  case 0: ok = has(tout, total, "guardtest: 0 failure(s)") && !has(tout, total, "FAIL"); break;
+  case 1: ok = has(tout, total, "kill(2) = -1") && has(tout, total, "kill(9999) = -1"); break;
+  case 2: ok = has(tout, total, "regtest: PASS"); break;
+  case 3: ok = has(tout, total, "no leak"); break;
+  default: ok = has(tout, total, "lockstress: done");
+  }
+  printf(1, "%s: %s\n", name, ok ? "PASS" : "FAIL");
+  return ok;
+}
+
+int
+main(int argc, char *argv[])
+{
+  static char *names[] = { "guardtest", "killtest", "regtest", "fpuleak", "lockstress" };
+  int i, ran = 0, passed = 0;
+
+  for(i = 0; i < 5; i++){
+    if(argc > 1 && strcmp(argv[1], names[i]) != 0)
+      continue;
+    ran++;
+    passed += run_one(names[i], i);
+  }
+  if(ran == 0){
+    printf(1, "usage: safeostests [guardtest|killtest|regtest|fpuleak|lockstress]\n");
+    exit();
+  }
+  printf(1, "safeostests: %d of %d passed\n", passed, ran);
+  exit();
+}

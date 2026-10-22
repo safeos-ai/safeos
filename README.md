@@ -91,7 +91,7 @@ SafeOS$
 
 
 Interested in designing a Safe OS for humanity, 
-please join us in safeos.ai, 
+please join us in https://safeos.ai, 
 or email unatechie@gmail.com
 // Written by UnaTechie, Sept. 29, 2026
 // Updated by UnaTechie, Oct. 20, 2026
